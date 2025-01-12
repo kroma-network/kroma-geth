@@ -99,5 +99,29 @@ func (tx *DepositTx) encode(b *bytes.Buffer) error {
 }
 
 func (tx *DepositTx) decode(input []byte) error {
+	// [Kroma: START] Handle Kroma legacy DepositTx
+	buf, _, err := rlp.SplitList(input)
+	if err != nil {
+		return err
+	}
+	cnt, err := rlp.CountValues(buf)
+	if err != nil {
+		return err
+	}
+	if cnt == 7 {
+		var legacyTx KromaLegacyDepositTx
+		if err = rlp.DecodeBytes(input, &legacyTx); err != nil {
+			return err
+		}
+		tx.SourceHash = legacyTx.SourceHash
+		tx.From = legacyTx.From
+		tx.To = legacyTx.To
+		tx.Mint = legacyTx.Mint
+		tx.Value = legacyTx.Value
+		tx.Gas = legacyTx.Gas
+		tx.Data = legacyTx.Data
+		return nil
+	}
+	// [Kroma: END]
 	return rlp.DecodeBytes(input, tx)
 }

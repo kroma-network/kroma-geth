@@ -24,7 +24,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/ethereum-optimism/superchain-registry/superchain"
+	"github.com/holiman/uint256"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -40,7 +40,6 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/ethereum/go-ethereum/triedb"
 	"github.com/ethereum/go-ethereum/triedb/pathdb"
-	"github.com/holiman/uint256"
 )
 
 //go:generate go run github.com/fjl/gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
@@ -255,8 +254,11 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, triedb *triedb.Database, g
 			// If applying the superchain-registry to a known OP-Stack chain,
 			// then override the local chain-config with that from the registry.
 			if overrides != nil && overrides.ApplySuperchainUpgrades && config.IsOptimism() && config.ChainID != nil && config.ChainID.IsUint64() {
-				if _, ok := superchain.OPChains[config.ChainID.Uint64()]; ok {
-					conf, err := params.LoadOPStackChainConfig(config.ChainID.Uint64())
+				// [Kroma: START]
+				// if _, ok := superchain.OPChains[config.ChainID.Uint64()]; ok {
+				// 	conf, err := params.LoadOPStackChainConfig(config.ChainID.Uint64())
+				if _, ok := params.KromaChains[config.ChainID.Uint64()]; ok {
+					conf, err := params.LoadKromaChainConfig(config.ChainID.Uint64())
 					if err != nil {
 						log.Warn("failed to load chain config from superchain-registry, skipping override", "err", err, "chain_id", config.ChainID)
 					} else {
@@ -445,6 +447,12 @@ func (g *Genesis) IsVerkle() bool {
 
 // ToBlock returns the genesis block according to genesis specification.
 func (g *Genesis) ToBlock() *types.Block {
+	// [Kroma: START]
+	hashAlloc := hashAlloc
+	if g.Config.Zktrie {
+		hashAlloc = HashAllocZk
+	}
+	// [Kroma: END]
 	var root common.Hash
 	var err error
 	if g.StateHash != nil {
@@ -512,6 +520,12 @@ func (g *Genesis) ToBlock() *types.Block {
 // Commit writes the block and state of a genesis specification to the database.
 // The block is committed as the canonical head block.
 func (g *Genesis) Commit(db ethdb.Database, triedb *triedb.Database) (*types.Block, error) {
+	// [Kroma: START]
+	flushAlloc := flushAlloc
+	if g.Config.Zktrie {
+		flushAlloc = FlushAllocZk
+	}
+	// [Kroma: END]
 	block := g.ToBlock()
 	if block.Number().Sign() != 0 {
 		return nil, errors.New("can't commit genesis block with number > 0")

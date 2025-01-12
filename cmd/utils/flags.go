@@ -34,6 +34,10 @@ import (
 	"strings"
 	"time"
 
+	pcsclite "github.com/gballet/go-libpcsclite"
+	gopsutil "github.com/shirou/gopsutil/mem"
+	"github.com/urfave/cli/v2"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
@@ -72,9 +76,6 @@ import (
 	"github.com/ethereum/go-ethereum/triedb"
 	"github.com/ethereum/go-ethereum/triedb/hashdb"
 	"github.com/ethereum/go-ethereum/triedb/pathdb"
-	pcsclite "github.com/gballet/go-libpcsclite"
-	gopsutil "github.com/shirou/gopsutil/mem"
-	"github.com/urfave/cli/v2"
 )
 
 // These are all the command line flags we support.
@@ -160,7 +161,7 @@ var (
 		Name:    "op-network",
 		Aliases: []string{"beta.op-network"},
 		Usage: "Select a pre-configured OP-Stack network (warning: op-mainnet and op-goerli require special sync," +
-			" datadir is recommended), options: " + strings.Join(params.OPStackChainNames(), ", "),
+			" datadir is recommended), options: " + strings.Join(params.KromaChainNames(), ", "),
 		Category: flags.EthCategory,
 	}
 
@@ -1947,7 +1948,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 			if rawdb.ReadCanonicalHash(chaindb, 0) != (common.Hash{}) {
 				cfg.Genesis = nil // fallback to db content
 
-				//validate genesis has PoS enabled in block 0
+				// validate genesis has PoS enabled in block 0
 				genesis, err := core.ReadGenesis(chaindb)
 				if err != nil {
 					Fatalf("Could not read genesis from database: %v", err)
@@ -2208,6 +2209,7 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 		genesis = core.DefaultGoerliGenesisBlock()
 	case ctx.IsSet(OPNetworkFlag.Name):
 		name := ctx.String(OPNetworkFlag.Name)
+		/* [Kroma: START]
 		ch, err := params.OPStackChainIDByName(name)
 		if err != nil {
 			Fatalf("failed to load OP-Stack chain %q: %v", name, err)
@@ -2216,6 +2218,16 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 		if err != nil {
 			Fatalf("failed to load genesis for OP-Stack chain %q (%d): %v", name, ch, err)
 		}
+		*/
+		ch, err := params.KromaChainIDByName(name)
+		if err != nil {
+			Fatalf("failed to load Kroma chain %q: %v", name, err)
+		}
+		genesis, err := core.LoadKromaGenesis(ch)
+		if err != nil {
+			Fatalf("failed to load genesis for OP-Stack chain %q (%d): %v", name, ch, err)
+		}
+		// [Kroma: END]
 		return genesis
 	case ctx.Bool(DeveloperFlag.Name):
 		Fatalf("Developer chains are ephemeral")
